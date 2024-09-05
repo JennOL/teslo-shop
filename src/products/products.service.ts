@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { PaginationDto } from '../common/dtos/pagination.dto';
 import { validate as isUUID } from 'uuid';
 import { Product, ProductImage } from './entities';
@@ -16,6 +16,8 @@ export class ProductsService {
 
     @InjectRepository(ProductImage)
     private readonly productImageRepository: Repository<ProductImage>,
+
+    private readonly dataSource: DataSource,
   ){}
 
   async create(createProductDto: CreateProductDto) {
@@ -84,18 +86,33 @@ export class ProductsService {
     if(updateProductDto.id && updateProductDto.id !== id)
       throw new BadRequestException('No se puede cambiar el id del producto.');
 
-    const product = await this.productRepository.preload({ // Busca un producto con el id, y carga todas las propiedades del DTO
-      id: id,
-      ...updateProductDto,
-      images: []
-    });
+    const { images, ...toUpdate } = updateProductDto;
 
+    const product = await this.productRepository.preload({ id, ...toUpdate });
     if(!product) throw new NotFoundException(`Product with id: ${id} not found.`);
 
+
+    // Create Query Runner
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      await this.productRepository.save(product);   // Guarda los cambios del producto
-      return product;
+      if(images){
+        // Se eliminan las imagenes nuevas
+        await queryRunner.manager.delete(ProductImage, { product: { id } });
+        // Se crean las nuevas imagenes
+        product.images = images.map(image => this.productImageRepository.create({ url: image }));
+      }
+
+      await queryRunner.manager.save(product);
+      await queryRunner.commitTransaction();
+      await queryRunner.release();
+
+      return this.findOnePlain(id);
     } catch (error) {
+      await queryRunner.rollbackTransaction();
+      await queryRunner.release();
       this.handleDBExceptions(error);
     }
   }
@@ -107,6 +124,19 @@ export class ProductsService {
 
       await this.productRepository.delete(id);
       return 'Product deleted successfully.'
+    } catch (error) {
+      this.handleDBExceptions(error);
+    }
+  }
+
+  async deleteAllProducts() {
+    const query = this.productRepository.createQueryBuilder('product');
+
+    try {
+      return await query
+        .delete()
+        .where({})
+        .execute();
     } catch (error) {
       this.handleDBExceptions(error);
     }

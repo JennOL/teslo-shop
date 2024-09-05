@@ -14,7 +14,6 @@ export class ProductsController {
 
   @Get()
   findAll(@Query() paginationDto:PaginationDto) {
-    console.log(paginationDto);
     return this.productsService.findAll(paginationDto);
   }
 
@@ -38,4 +37,6 @@ export class ProductsController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.remove(id);
   }
+
+  
 }

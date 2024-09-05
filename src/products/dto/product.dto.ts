@@ -5,7 +5,7 @@ import {
 
 export class CreateProductDto {
     @IsOptional()
-    readonly id: string;
+    readonly id?: string;
 
     @IsString()
     @MinLength(3)
