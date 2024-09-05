@@ -20,11 +20,14 @@ export class ProductsController {
 
   @Get(':term')
   findOne(@Param('term') term: string) {
-    return this.productsService.findOne(term);
+    return this.productsService.findOnePlain(term);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateProductDto: UpdateProductDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string, 
+    @Body() updateProductDto: UpdateProductDto
+  ) {
     if(Object.entries(updateProductDto).length < 1)
       throw new BadRequestException('No hay datos para actualizar.');
 

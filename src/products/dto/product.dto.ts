@@ -36,12 +36,15 @@ export class CreateProductDto {
     @IsString({ each: true })
     @IsArray()
     @IsOptional()
-    readonly tags: string[];
+    readonly tags?: string[];
 
     @IsIn(['men', 'women', 'kid', 'unisex'])
     readonly gender: string
 
-    //readonly image: string;
+    @IsString({ each: true })
+    @IsArray()
+    @IsOptional()
+    readonly images?: string[];
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {}
